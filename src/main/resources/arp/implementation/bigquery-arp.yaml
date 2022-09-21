@@ -13,7 +13,7 @@ syntax:
   supports_catalogs: true
   supports_schemas: true
 
-# https://docs.snowflake.net/manuals/sql-reference/intro-summary-data-types.html
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
 data_types:
   mappings:
     #------------Boolean types--------------#
@@ -25,73 +25,37 @@ data_types:
     #------------Numeric types--------------#
     - source:
         name: "NUMERIC"
-        max_precision: 38
-        max_scale: 37
+        max_precision: 30
+        max_scale: 9
       required_cast_args: "precision_scale"
       dremio:
         name: "DECIMAL"
-
-    - source:
-        name: "NUMBER"
-        max_precision: 38
-        max_scale: 37
-      dremio:
-        name: "DECIMAL"
-
     - source:
         name: "DECIMAL"
-        max_precision: 38
-        max_scale: 37
+        max_precision: 30
+        max_scale: 9
       required_cast_args: "precision_scale"
       dremio:
         name: "DECIMAL"
-
     - source:
-        name: "INT"
+        name: "INT64"
       dremio:
-        name: "integer"
+        name: "bigint"
     - source:
         name: "INTEGER"
       dremio:
         name: "integer"
     - source:
-        name: "SMALLINT"
-      dremio:
-        name: "integer"
-    - source:
-        name: "BIGINT"
-      dremio:
-        name: "bigint"
-
-    - source:
-        name: "FLOAT"
-      dremio:
-        name: "double"
-    - source:
-        name: "FLOAT4"
-      dremio:
-        name: "double"
-    - source:
-        name: "FLOAT8"
-      dremio:
-        name: "double"
-    - source:
-        name: "DOUBLE"
-      dremio:
-        name: "double"
-    - source:
-        name: "DOUBLE PRECISION"
+        name: "FLOAT64"
       dremio:
         name: "double"
 
     #------------String types--------------#
     - source:
-        name: "VARCHAR"
-        max_precision: 16777216
-        literal_length_limit: 16777216
-      required_cast_args: "precision"
+        name: "STRING"
       dremio:
         name: "varchar"
+      required_cast_arguments: "none"
     - source:
         name: "CHAR"
         max_precision: 1
@@ -104,20 +68,6 @@ data_types:
         literal_length_limit: 1
       dremio:
         name: "varchar"
-    - source:
-        name: "STRING"
-      dremio:
-        name: "varchar"
-
-    #------------Binary--------------#
-    # https://docs.snowflake.net/manuals/sql-reference/data-types-text.html#binary
-    - source:
-        name: "binary"
-        max_precision: 8388608
-        literal_length_limit: 8388608
-      required_cast_args: "precision"
-      dremio:
-        name: "varbinary"
 
     #------------Date types--------------#
     - source:
@@ -133,35 +83,16 @@ data_types:
       dremio:
         name: "timestamp"
     - source:
-        name: "TIMESTAMP_LTZ"
+        name: "DATETIME"
       dremio:
         name: "timestamp"
-    - source:
-        name: "TIMESTAMP_NTZ"
-      dremio:
-        name: "timestamp"
-    - source:
-        name: "TIMESTAMP_TZ"
-      dremio:
-        name: "timestamp"
-    - source:
-        name: "TIMESTAMPLTZ"
-      dremio:
-        name: "timestamp"
-    - source:
-        name: "TIMESTAMPNTZ"
-      dremio:
-        name: "timestamp"
-    - source:
-        name: "TIMESTAMPTZ"
-      dremio:
-        name: "timestamp"
-    #------------ Snowflake's complex VARIANT type (JSON) is mapped to Dremio's VARCHAR. -------------#
+
     #------------ You can use convert_from(<field>, 'JSON') in Dremio to treat it as a JSON -------------#
     - source:
-        name: "VARIANT"
+        name: "JSON"
       dremio:
-        name: "VARCHAR"
+        name: "varchar"
+      required_cast_arguments: "none"
 
 relational_algebra:
   aggregation:
@@ -175,28 +106,39 @@ relational_algebra:
         enable: true
       count_distinct:
         enable: true
-    #   https://docs.snowflake.net/manuals/sql-reference-functions.html
+    #   https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators
 
     functions:
       - names:
           - "avg"
         signatures:
           - args:
-              - "double"
+              - "bigint"
             return: "double"
-          - args:
-              - "decimal"
-            return: "decimal"
+            rewrite: "AVG({0})"
           - args:
               - "integer"
             return: "double"
+            rewrite: "AVG({0})"
+          - args:
+              - "double"
+            return: "double"
+            rewrite: "AVG({0})"
+          - args:
+              - "decimal"
+            return: "decimal"
+            rewrite: "AVG({0})"
+
       - names:
           - "max"
           - "min"
         signatures:
           - args:
+              - "bigint"
+            return: "bigint"
+          - args:
               - "integer"
-            return: "integer"
+            return: "bigint"
           - args:
               - "double"
             return: "double"
@@ -210,14 +152,17 @@ relational_algebra:
           - "sum"
         signatures:
           - args:
+              - "bigint"
+            return: "bigint"
+          - args:
+              - "integer"
+            return: "bigint"
+          - args:
               - "double"
             return: "double"
           - args:
               - "decimal"
             return: "decimal"
-          - args:
-              - "integer"
-            return: "bigint"
       - names:
           - "stddev"
           - "stddev_pop"
@@ -229,13 +174,10 @@ relational_algebra:
               - "bigint"
             return: "double"
           - args:
-              - "double"
-            return: "double"
-          - args:
-              - "float"
-            return: "double"
-          - args:
               - "integer"
+            return: "double"
+          - args:
+              - "double"
             return: "double"
           - args:
               - "decimal"
@@ -266,7 +208,7 @@ relational_algebra:
     order_by:
       enable: true
       default_nulls_ordering: low
-    fetch_offset: # https://docs.snowflake.net/manuals/sql-reference/constructs/limit.html#limit-fetch
+    fetch_offset: 
       offset_fetch:
         enable: true
         format: 'LIMIT {1} OFFSET {0}'
@@ -275,7 +217,6 @@ relational_algebra:
       fetch_only:
         enable: true
         format: 'LIMIT {0}'
-  # https://docs.snowflake.net/manuals/sql-reference/operators-query.html#union-all
   union:
     enable: true
   union_all:
@@ -293,7 +234,7 @@ expressions:
     in_clause: true
   supports_case: true
   supports_over: true
-  datetime_formats: #https://docs.snowflake.net/manuals/sql-reference/data-types-datetime.html#date-and-time-formats
+  datetime_formats: 
     meridian:
       enable: true
       format: "AM"
@@ -351,47 +292,48 @@ expressions:
             - "varchar"
           return: "bigint"
           rewrite: "CAST(TRUNC(CAST({0} AS DECIMAL), 0) AS BIGINT)"
+        - args:
+            - "varchar"
+          return: "varchar"
+          rewrite: "CAST({0} AS STRING)"
+        - args:
+            - "boolean"
+          return: "varchar"
+          rewrite: "CAST({0} AS STRING)"
+        - args:
+            - "date"
+          return: "varchar"
+          rewrite: "CAST({0} AS STRING)"
+        - args:
+            - "timestamp"
+          return: "varchar"
+          rewrite: "CAST({0} AS STRING)"
     - names:
-        - "trim" #https://docs.snowflake.net/manuals/sql-reference/functions/trim.html
+        - "trim" #https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#trim
       signatures:
         - args:
             - "varchar"
           return: "varchar"
-    - names: #https://docs.snowflake.net/manuals/sql-reference/functions/ltrim.html
+    - names: #https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#ltrim
         - "ltrim"
       signatures:
         - args:
             - "varchar"
           return: "varchar"
-    - names: #https://docs.snowflake.net/manuals/sql-reference/functions/rtrim.html
+    - names: #https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#rtrim
         - "rtrim"
       signatures:
         - args:
             - "varchar"
           return: "varchar"
-    - names: #https://docs.snowflake.net/manuals/sql-reference/functions/sign.html
+    - names: #https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#sign
         - "sign"
       signatures:
         - args:
             - "bigint"
-          return: "integer"
-        - args:
-            - "double"
-          return: "integer"
-        - args:
-            - "decimal"
-          return: "integer"
-        - args:
-            - "float"
-          return: "integer"
+          return: "bigint"
         - args:
             - "integer"
-          return: "integer"
-    - names:
-        - "floor" #https://docs.snowflake.net/manuals/sql-reference/functions/floor.html.
-      signatures:
-        - args:
-            - "bigint"
           return: "bigint"
         - args:
             - "double"
@@ -399,33 +341,27 @@ expressions:
         - args:
             - "decimal"
           return: "decimal"
-        - args:
-            - "float"
-          return: "float"
-        - args:
-            - "integer"
-          return: "integer"
-    - names: #https://docs.snowflake.net/manuals/sql-reference/functions/position.html
-        - "position"
-        - "locate"
+    - names:
+        - "floor" #https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#floor
       signatures:
         - args:
-            - "varchar"
-            - "varchar"
-          return: "integer"
-          rewrite: "POSITION({0}, {1})"
+            - "bigint"
+          return: "bigint"
         - args:
-            - "varchar"
-            - "varchar"
             - "integer"
-          return: "integer"
-          rewrite: "POSITION({0}, {1}, {2})"
+          return: "bigint"
+        - args:
+            - "double"
+          return: "double"
+        - args:
+            - "decimal"
+          return: "decimal"
     - names:
         - "pi"
       signatures:
         - args: []
           return: "double"
-    - names:
+    - names: #https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#trunc
         - "truncate"
       signatures:
         - args:
@@ -439,11 +375,6 @@ expressions:
           return: "decimal"
           rewrite: "TRUNC({0}, {1})"
         - args:
-            - "float"
-            - "integer"
-          return: "float"
-          rewrite: "TRUNC({0}, {1})"
-        - args:
             - "bigint"
             - "integer"
           return: "bigint"
@@ -462,10 +393,6 @@ expressions:
           return: "decimal"
           rewrite: "TRUNC({0})"
         - args:
-            - "float"
-          return: "float"
-          rewrite: "TRUNC({0})"
-        - args:
             - "integer"
           return: "integer"
           rewrite: "TRUNC({0})"
@@ -473,113 +400,140 @@ expressions:
             - "bigint"
           return: "bigint"
           rewrite: "TRUNC({0})"
-    - names:
+    - names: #https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#reverse
         - "reverse"
       signatures:
         - args:
             - "varchar"
           return: "varchar"
     - names:
-        - "rpad" #https://docs.snowflake.net/manuals/sql-reference/functions/rpad.html
+        - "rpad" #https://cloud.google.com/bigquery/docs/reference/standard-sql/string_functions#rpad
       signatures:
         - args:
             - "varchar"
-            - "integer"
+            - "bigint"
+          return: "varchar"
+        - args:
             - "varchar"
+            - "integer"
           return: "varchar"
         - args:
             - "varchar"
             - "bigint"
+            - "varchar"
+          return: "varchar"
+        - args:
+            - "varchar"
+            - "integer"
             - "varchar"
           return: "varchar"
     - names:
-        - "lpad" #https://docs.snowflake.net/manuals/sql-reference/functions/lpad.html
+        - "lpad" #https://cloud.google.com/bigquery/docs/reference/standard-sql/string_functions#lpad
       signatures:
         - args:
             - "varchar"
-            - "integer"
+            - "bigint"
+          return: "varchar"
+        - args:
             - "varchar"
+            - "integer"
           return: "varchar"
         - args:
             - "varchar"
             - "bigint"
             - "varchar"
           return: "varchar"
-    - names: #https://docs.snowflake.net/manuals/sql-reference/functions/substr.html
+        - args:
+            - "varchar"
+            - "integer"
+            - "varchar"
+          return: "varchar"
+    - names: #https://cloud.google.com/bigquery/docs/reference/standard-sql/string_functions#substring
         - "substring"
       signatures:
         - args:
             - "varchar"
+            - "bigint"
+            - "bigint"
+          return: "varchar"
+          rewrite: "substring({0},{1},{2})"
+        - args:
+            - "varchar"
             - "integer"
             - "integer"
           return: "varchar"
           rewrite: "substring({0},{1},{2})"
         - args:
             - "varchar"
+            - "bigint"
+          return: "varchar"
+          rewrite: "substring({0},{1})"
+        - args:
+            - "varchar"
             - "integer"
           return: "varchar"
           rewrite: "substring({0},{1})"
-    - names:
+    - names: #https://cloud.google.com/bigquery/docs/reference/standard-sql/string_functions#substr
         - "substr"
       signatures:
         - args:
             - "varchar"
+            - "bigint"
+            - "bigint"
+          return: "varchar"
+          rewrite: "substring({0},{1},{2})"
+        - args:
+            - "varchar"
             - "integer"
             - "integer"
           return: "varchar"
           rewrite: "substring({0},{1},{2})"
         - args:
             - "varchar"
+            - "bigint"
+          return: "varchar"
+          rewrite: "substring({0},{1})"
+        - args:
+            - "varchar"
             - "integer"
           return: "varchar"
           rewrite: "substring({0},{1})"
-    # Snowlake supports both EXTRACT (type from field) and YEAR/MONTH/DAY/SECOND etc..
-    # https://docs.snowflake.net/manuals/sql-reference/functions/date_part.html
-    - names:
+    - names: #https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#extract_2
         - extract_year
       signatures:
         - return: bigint
           args:
             - date
-          rewrite: "YEAR({0})"
         - return: bigint
           args:
             - timestamp
-          rewrite: "YEAR({0})"
         - return: bigint
           args:
             - time
-          rewrite: "YEAR({0})"
     - names:
         - extract_month
       signatures:
         - return: bigint
           args:
             - date
-          rewrite: "MONTH({0})"
         - return: bigint
           args:
             - timestamp
-          rewrite: "MONTH({0})"
         - return: bigint
           args:
             - time
-          rewrite: "MONTH({0})"
     - names:
         - extract_day
       signatures:
         - return: bigint
           args:
             - date
-          rewrite: "DAY({0})"
         - return: bigint
           args:
             - timestamp
-          rewrite: "DAY({0})"
         - return: bigint
           args:
             - time
-          rewrite: "DAY({0})"
 
     - names:
         - extract_hour
@@ -587,60 +541,48 @@ expressions:
         - return: bigint
           args:
             - date
-          rewrite: "HOUR({0})"
         - return: bigint
           args:
             - timestamp
-          rewrite: "HOUR({0})"
         - return: bigint
           args:
             - time
-          rewrite: "HOUR({0})"
     - names:
         - extract_minute
       signatures:
         - return: bigint
           args:
             - date
-          rewrite: "MINUTE({0})"
         - return: bigint
           args:
             - timestamp
-          rewrite: "MINUTE({0})"
         - return: bigint
           args:
             - time
-          rewrite: "MINUTE({0})"
     - names:
         - extract_second
       signatures:
         - return: bigint
           args:
             - date
-          rewrite: "SECOND({0})"
         - return: bigint
           args:
             - timestamp
-          rewrite: "SECOND({0})"
         - return: bigint
           args:
             - time
-          rewrite: "SECOND({0})"
     - names:
         - extract_dow
       signatures:
         - return: bigint
           args:
             - date
-          rewrite: "DAYOFWEEK({0})"
         - return: bigint
           args:
             - timestamp
-          rewrite: "DAYOFWEEK({0})"
         - return: bigint
           args:
             - time
-          rewrite: "DAYOFWEEK({0})"
 
     - names:
         - extract_doy
@@ -648,15 +590,12 @@ expressions:
         - return: bigint
           args:
             - date
-          rewrite: "DAYOFYEAR({0})"
         - return: bigint
           args:
             - timestamp
-          rewrite: "DAYOFYEAR({0})"
         - return: bigint
           args:
             - time
-          rewrite: "DAYOFYEAR({0})"
 
     - names:
         - extract_quarter
@@ -664,15 +603,12 @@ expressions:
         - return: bigint
           args:
             - date
-          rewrite: "QUARTER({0})"
         - return: bigint
           args:
             - timestamp
-          rewrite: "QUARTER({0})"
         - return: bigint
           args:
             - time
-          rewrite: "QUARTER({0})"
 
     - names:
         - extract_week
@@ -680,19 +616,16 @@ expressions:
         - return: bigint
           args:
             - date
-          rewrite: "WEEK({0})"
         - return: bigint
           args:
             - timestamp
-          rewrite: "WEEK({0})"
         - return: bigint
           args:
             - time
-          rewrite: "WEEK({0})"
 
     # Math functions
     - names:
-        - "log" #https://docs.snowflake.net/manuals/sql-reference/functions/log.html
+        - "log" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#log
       signatures:
         - args:
             - "double"
@@ -707,86 +640,80 @@ expressions:
             - "decimal"
           return: "decimal"
     - names:
-        - "acos" #https://docs.snowflake.net/manuals/sql-reference/functions/acos.html
+        - "acos" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#acos
       signatures:
+        - args:
+            - "bigint"
+          return: "double"
+        - args:
+            - "integer"
+          return: "double"
         - args:
             - "double"
           return: "double"
         - args:
             - "decimal"
+          return: "double"
+    - names:
+        - "asin" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#asin
+      signatures:
+        - args:
+            - "bigint"
+          return: "double"
+        - args:
+            - "integer"
+          return: "double"
+        - args:
+            - "double"
+          return: "double"
+        - args:
+            - "decimal"
+          return: "double"
+    - names:
+        - "round" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#round
+      signatures:
+        - args:
+            - "bigint"
+          return: "bigint"
+        - args:
+            - "integer"
+          return: "bigint"
+        - args:
+            - "double"
+          return: "double"
+        - args:
+            - "decimal"
+          return: "decimal"
+        - args:
+            - "bigint"
+            - "bigint"
+          return: "bigint"
+        - args:
+            - "bigint"
+            - "integer"
+          return: "bigint"
+        - args:
+            - "double"
+            - "bigint"
+          return: "double"
+        - args:
+            - "double"
+            - "integer"
+          return: "double"
+        - args:
+            - "decimal"
+            - "bigint"
+          return: "decimal"
+        - args:
+            - "decimal"
+            - "integer"
           return: "decimal"
     - names:
-        - "asin" #https://docs.snowflake.net/manuals/sql-reference/functions/asin.html
+        - "abs" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#abs
       signatures:
         - args:
-            - "double"
-          return: "double"
-        - args:
-            - "decimal"
-          return: "decimal"
-    - names:
-        - "round" #https://docs.snowflake.net/manuals/sql-reference/functions/round.html
-      signatures:
-        - args:
-            - "integer"
-          return: "integer"
-        - args:
             - "bigint"
           return: "bigint"
-        - args:
-            - "double"
-          return: "bigint"
-        - args:
-            - "float"
-          return: "float"
-          rewrite: "bigint"
-        - args:
-            - "bigint"
-            - "integer"
-          return: "bigint"
-        - args:
-            - "bigint"
-            - "bigint"
-          return: "bigint"
-        - args:
-            - "integer"
-            - "integer"
-          return: "integer"
-        - args:
-            - "integer"
-            - "bigint"
-          return: "integer"
-        - args:
-            - "double"
-            - "integer"
-          return: "double"
-        - args:
-            - "double"
-            - "bigint"
-          return: "double"
-        - args:
-            - "float"
-            - "integer"
-          return: "float"
-        - args:
-            - "float"
-            - "bigint"
-          return: "float"
-        - args:
-            - "integer"
-            - "decimal"
-          return: "decimal"
-        - args:
-            - "decimal"
-            - "integer"
-          return: "decimal"
-        - args:
-            - "decimal"
-            - "decimal"
-          return: "decimal"
-    - names:
-        - "abs" #https://docs.snowflake.net/manuals/sql-reference/functions/abs.html
-      signatures:
         - args:
             - "integer"
           return: "integer"
@@ -794,98 +721,73 @@ expressions:
             - "double"
           return: "double"
         - args:
-            - "bigint"
-          return: "bigint"
-        - args:
-            - "float"
-          return: "double"
-        - args:
             - "decimal"
           return: "decimal"
     - names:
-        - "atan" #https://docs.snowflake.net/manuals/sql-reference/functions/atan.html
+        - "atan" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#atan
       signatures:
         - args:
             - "bigint"
           return: "double"
         - args:
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-          return: "double"
-        - args:
             - "integer"
           return: "double"
         - args:
+            - "double"
+          return: "double"
+        - args:
             - "decimal"
-          return: "decimal"
+          return: "double"
     - names:
-        - "atan2" #https://docs.snowflake.net/manuals/sql-reference/functions/atan2.html
+        - "atan2" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#atan2
       signatures:
         - args:
             - "bigint"
-            - "float"
-          return: "double"
-        - args:
-            - "double"
-            - "double"
-          return: "double"
-        - args:
-            - "double"
-            - "bigint"
-          return: "double"
-        - args:
-            - "bigint"
-            - "integer"
-          return: "double"
-        - args:
-            - "integer"
             - "bigint"
           return: "double"
         - args:
             - "integer"
-            - "double"
-          return: "double"
-        - args:
-            - "float"
             - "integer"
           return: "double"
         - args:
-            - "float"
-            - "float"
-          return: "double"
-        - args:
             - "double"
-            - "float"
+            - "double"
           return: "double"
         - args:
+            - "decimal"
+            - "decimal"
+          return: "decimal"
+        - args:
+            - "bigint"
             - "integer"
-            - "float"
-          return: "double"
-        - args:
-            - "bigint"
-            - "bigint"
-          return: "double"
-        - args:
-            - "float"
-            - "bigint"
-          return: "double"
-        - args:
-            - "float"
-            - "double"
           return: "double"
         - args:
             - "bigint"
             - "double"
           return: "double"
         - args:
-            - "integer"
-            - "integer"
+            - "bigint"
+            - "decimal"
+          return: "double"
+        - args:
+            - "double"
+            - "bigint"
           return: "double"
         - args:
             - "double"
             - "integer"
+          return: "double"
+        - args:
+            - "double"
+            - "decimal"
+          return: "double"
+        - args:
+            - "integer"
+            - "bigint"
+          return: "double"
+        - args:
+            - "integer"
+            - "double"
           return: "double"
         - args:
             - "integer"
@@ -893,148 +795,104 @@ expressions:
           return: "decimal"
         - args:
             - "decimal"
+            - "bigint"
+          return: "decimal"
+        - args:
+            - "decimal"
             - "integer"
           return: "decimal"
         - args:
             - "decimal"
-            - "decimal"
+            - "double"
           return: "decimal"
     - names:
-        - "cbrt" #https://docs.snowflake.net/manuals/sql-reference/functions/cbrt.html
+        - "cbrt" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#cbrt
       signatures:
         - args:
             - "bigint"
           return: "double"
         - args:
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-          return: "double"
-        - args:
             - "integer"
           return: "double"
-        - args:
-            - "decimal"
-          return: "decimal"
     - names:
-        - "ceil" #https://docs.snowflake.net/manuals/sql-reference/functions/ceil.html
+        - "ceil" #https://cloud.google.com/bigquery/docs/reference/standard-sql/functions-and-operators#ceil
       signatures:
         - args:
             - "bigint"
           return: "double"
         - args:
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-          return: "double"
-        - args:
             - "integer"
           return: "double"
         - args:
+            - "double"
+          return: "double"
+        - args:
             - "decimal"
-          return: "decimal"
+          return: "double"
     - names:
-        - "cos" #https://docs.snowflake.net/manuals/sql-reference/functions/cos.html
+        - "cos" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#cos
         - "cosh"
       signatures:
         - args:
             - "bigint"
           return: "double"
         - args:
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-          return: "double"
-        - args:
             - "integer"
           return: "double"
         - args:
+            - "double"
+          return: "double"
+        - args:
             - "decimal"
-          return: "decimal"
+          return: "double"
     - names:
-        - "cot" #https://docs.snowflake.net/manuals/sql-reference/functions/cot.html
+        - "cot" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#cot
       signatures:
         - args:
             - "bigint"
           return: "double"
         - args:
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-          return: "double"
-        - args:
             - "integer"
           return: "double"
         - args:
+            - "double"
+          return: "double"
+        - args:
             - "decimal"
-          return: "decimal"
+          return: "double"
     - names:
-        - "degrees" #https://docs.snowflake.net/manuals/sql-reference/functions/degrees.html
+        - "exp" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#exp
       signatures:
         - args:
             - "bigint"
           return: "double"
         - args:
+            - "integer"
+          return: "double"
+        - args:
             - "double"
           return: "double"
         - args:
-            - "float"
-          return: "double"
-        - args:
-            - "integer"
-          return: "double"
-        - args:
             - "decimal"
-          return: "decimal"
-    - names:
-        - "exp" #https://docs.snowflake.net/manuals/sql-reference/functions/exp.html
-      signatures:
-        - args:
-            - "float"
           return: "double"
-        - args:
-            - "integer"
-          return: "double"
-        - args:
-            - "decimal"
-          return: "decimal"
     - names:
-        - "ln" #https://docs.snowflake.net/manuals/sql-reference/functions/ln.html
+        - "ln" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#ln
       signatures:
         - args:
             - "bigint"
           return: "double"
         - args:
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-          return: "double"
-        - args:
             - "integer"
+          return: "double"
+        - args:
+            - "double"
           return: "double"
         - args:
             - "decimal"
-          return: "decimal"
+          return: "double"
     - names:
-        - "mod" #https://docs.snowflake.net/manuals/sql-reference/functions/mod.html
+        - "mod" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#mod
       signatures:
-        - args:
-            - "double"
-            - "double"
-          return: "double"
-        - args:
-            - "double"
-            - "bigint"
-          return: "double"
-        - args:
-            - "integer"
-            - "double"
-          return: "double"
         - args:
             - "bigint"
             - "bigint"
@@ -1045,21 +903,21 @@ expressions:
           return: "integer"
         - args:
             - "bigint"
-            - "double"
-          return: "double"
-        - args:
-            - "bigint"
             - "integer"
           return: "integer"
-        - args:
-            - "double"
-            - "integer"
-          return: "double"
         - args:
             - "integer"
             - "bigint"
           return: "bigint"
         - args:
+            - "bigint"
+            - "decimal"
+          return: "decimal"
+        - args:
+            - "decimal"
+            - "bigint"
+          return: "decimal"
+        - args:
             - "integer"
             - "decimal"
           return: "decimal"
@@ -1072,17 +930,29 @@ expressions:
             - "decimal"
           return: "decimal"
     - names:
-        - "power" #https://docs.snowflake.net/manuals/sql-reference/functions/pow.html
+        - "power" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#pow
       signatures:
         - args:
             - "bigint"
-            - "float"
+            - "bigint"
           return: "double"
         - args:
             - "bigint"
             - "integer"
           return: "double"
         - args:
+            - "bigint"
+            - "double"
+          return: "double"
+        - args:
+            - "bigint"
+            - "decimal"
+          return: "decimal"
+        - args:
+            - "integer"
+            - "integer"
+          return: "double"
+        - args:
             - "integer"
             - "bigint"
           return: "double"
@@ -1091,36 +961,32 @@ expressions:
             - "double"
           return: "double"
         - args:
-            - "float"
-            - "integer"
-          return: "double"
-        - args:
-            - "float"
-            - "float"
-          return: "double"
-        - args:
-            - "double"
-            - "double"
-          return: "double"
-        - args:
-            - "integer"
-            - "integer"
-          return: "double"
-        - args:
-            - "double"
-            - "float"
-          return: "double"
-        - args:
-            - "double"
-            - "integer"
-          return: "double"
-        - args:
-            - "integer"
-            - "float"
-          return: "double"
-        - args:
             - "integer"
             - "decimal"
+          return: "decimal"
+        - args:
+            - "double"
+            - "double"
+          return: "double"
+        - args:
+            - "double"
+            - "bigint"
+          return: "double"
+        - args:
+            - "double"
+            - "integer"
+          return: "double"
+        - args:
+            - "double"
+            - "decimal"
+          return: "double"
+        - args:
+            - "decimal"
+            - "decimal"
+          return: "decimal"
+        - args:
+            - "decimal"
+            - "bigint"
           return: "decimal"
         - args:
             - "decimal"
@@ -1128,83 +994,56 @@ expressions:
           return: "decimal"
         - args:
             - "decimal"
-            - "decimal"
-          return: "decimal"
+            - "double"
+          return: "double"
     - names:
-        - "radians" #https://docs.snowflake.net/manuals/sql-reference/functions/radians.html
-      signatures:
-        - args:
-            - "bigint"
-          return: "double"
-        - args:
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-          return: "double"
-        - args:
-            - "integer"
-          return: "double"
-        - args:
-            - "decimal"
-          return: "decimal"
-    - names:
-        - "sin" #https://docs.snowflake.net/manuals/sql-reference/functions/sin.html
-      signatures:
-        - args:
-            - "bigint"
-          return: "double"
-        - args:
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-          return: "double"
-        - args:
-            - "integer"
-          return: "double"
-        - args:
-            - "decimal"
-          return: "decimal"
-    - names:
-        - "sqrt" #https://docs.snowflake.net/manuals/sql-reference/functions/sqrt.html
+        - "sin" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#sin
       signatures:
         - args:
             - "bigint"
           return: "double"
         - args:
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-          return: "double"
-        - args:
             - "integer"
+          return: "double"  
+        - args:
+            - "double"
           return: "double"
         - args:
             - "decimal"
           return: "decimal"
     - names:
-        - "tan" #https://docs.snowflake.net/manuals/sql-reference/functions/tan.html
+        - "sqrt" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#sqrt
+      signatures:
+        - args:
+            - "bigint"
+          return: "double"
+        - args:
+            - "integer"
+          return: "double"
+        - args:
+            - "double"
+          return: "double"
+        - args:
+            - "decimal"
+          return: "decimal"
+    - names:
+        - "tan" #https://cloud.google.com/bigquery/docs/reference/standard-sql/mathematical_functions#tan
         - "tanh"
       signatures:
         - args:
             - "bigint"
           return: "double"
         - args:
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-          return: "double"
-        - args:
             - "integer"
+          return: "double"
+        - args:
+            - "double"
           return: "double"
         - args:
             - "decimal"
           return: "decimal"
 
-    #https://docs.snowflake.net/manuals/sql-reference/operators.html
+    #https://cloud.google.com/bigquery/docs/reference/standard-sql/operators
     #--- Arithmetic Operators --#
     - names:
         - "+"
@@ -1220,19 +1059,11 @@ expressions:
           return: "double"
         - args:
             - "decimal"
-            - "float"
-          return: "float"
-        - args:
-            - "decimal"
             - "bigint"
           return: "decimal"
         - args:
             - "decimal"
             - "integer"
-          return: "decimal"
-        - args:
-            - "decimal"
-            - "boolean"
           return: "decimal"
         - args:
             - "decimal"
@@ -1248,52 +1079,12 @@ expressions:
           return: "double"
         - args:
             - "double"
-            - "float"
-          return: "double"
-        - args:
-            - "double"
             - "bigint"
           return: "double"
         - args:
             - "double"
             - "integer"
           return: "double"
-        - args:
-            - "double"
-            - "boolean"
-          return: "double"
-        - args:
-            - "double"
-            - "varchar"
-          return: "double"
-        - args:
-            - "float"
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-            - "decimal"
-          return: "float"
-        - args:
-            - "float"
-            - "float"
-          return: "float"
-        - args:
-            - "float"
-            - "bigint"
-          return: "float"
-        - args:
-            - "float"
-            - "integer"
-          return: "float"
-        - args:
-            - "float"
-            - "boolean"
-          return: "float"
-        - args:
-            - "float"
-            - "varchar"
-          return: "float"
         - args:
             - "bigint"
             - "bigint"
@@ -1308,19 +1099,7 @@ expressions:
           return: "double"
         - args:
             - "bigint"
-            - "float"
-          return: "float"
-        - args:
-            - "bigint"
             - "integer"
-          return: "bigint"
-        - args:
-            - "bigint"
-            - "boolean"
-          return: "bigint"
-        - args:
-            - "bigint"
-            - "varchar"
           return: "bigint"
         - args:
             - "integer"
@@ -1336,60 +1115,8 @@ expressions:
           return: "double"
         - args:
             - "integer"
-            - "float"
-          return: "float"
-        - args:
-            - "integer"
             - "bigint"
           return: "bigint"
-        - args:
-            - "integer"
-            - "boolean"
-          return: "integer"
-        - args:
-            - "integer"
-            - "varchar"
-          return: "integer"
-        - args:
-            - "varchar"
-            - "varchar"
-          return: "varchar"
-        - args:
-            - "varchar"
-            - "decimal"
-          return: "decimal"
-        - args:
-            - "varchar"
-            - "double"
-          return: "double"
-        - args:
-            - "varchar"
-            - "bigint"
-          return: "bigint"
-        - args:
-            - "varchar"
-            - "integer"
-          return: "integer"
-        - args:
-            - "boolean"
-            - "decimal"
-          return: "decimal"
-        - args:
-            - "boolean"
-            - "double"
-          return: "double"
-        - args:
-            - "boolean"
-            - "bigint"
-          return: "bigint"
-        - args:
-            - "boolean"
-            - "integer"
-          return: "integer"
-        - args:
-            - "timestamp"
-            - "timestamp"
-          return: "timestamp"
     - names:
         - "/"
       signatures:
@@ -1403,10 +1130,6 @@ expressions:
           return: "double"
         - args:
             - "decimal"
-            - "float"
-          return: "double"
-        - args:
-            - "decimal"
             - "bigint"
           return: "decimal"
         - args:
@@ -1414,24 +1137,12 @@ expressions:
             - "integer"
           return: "decimal"
         - args:
-            - "decimal"
-            - "boolean"
-          return: "decimal"
-        - args:
-            - "decimal"
-            - "varchar"
-          return: "decimal"
-        - args:
             - "double"
             - "double"
           return: "double"
         - args:
             - "double"
             - "decimal"
-          return: "double"
-        - args:
-            - "double"
-            - "float"
           return: "double"
         - args:
             - "double"
@@ -1441,42 +1152,6 @@ expressions:
             - "double"
             - "integer"
           return: "double"
-        - args:
-            - "double"
-            - "boolean"
-          return: "double"
-        - args:
-            - "double"
-            - "varchar"
-          return: "double"
-        - args:
-            - "float"
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-            - "decimal"
-          return: "float"
-        - args:
-            - "float"
-            - "float"
-          return: "float"
-        - args:
-            - "float"
-            - "bigint"
-          return: "double"
-        - args:
-            - "float"
-            - "integer"
-          return: "float"
-        - args:
-            - "float"
-            - "boolean"
-          return: "float"
-        - args:
-            - "float"
-            - "varchar"
-          return: "float"
         - args:
             - "bigint"
             - "bigint"
@@ -1491,19 +1166,7 @@ expressions:
           return: "double"
         - args:
             - "bigint"
-            - "float"
-          return: "double"
-        - args:
-            - "bigint"
             - "integer"
-          return: "bigint"
-        - args:
-            - "bigint"
-            - "boolean"
-          return: "bigint"
-        - args:
-            - "bigint"
-            - "varchar"
           return: "bigint"
         - args:
             - "integer"
@@ -1519,56 +1182,8 @@ expressions:
           return: "double"
         - args:
             - "integer"
-            - "float"
-          return: "float"
-        - args:
-            - "integer"
             - "bigint"
           return: "bigint"
-        - args:
-            - "integer"
-            - "boolean"
-          return: "integer"
-        - args:
-            - "integer"
-            - "varchar"
-          return: "integer"
-        - args:
-            - "varchar"
-            - "decimal"
-          return: "decimal"
-        - args:
-            - "varchar"
-            - "double"
-          return: "double"
-        - args:
-            - "varchar"
-            - "float"
-          return: "float"
-        - args:
-            - "varchar"
-            - "bigint"
-          return: "bigint"
-        - args:
-            - "varchar"
-            - "integer"
-          return: "integer"
-        - args:
-            - "boolean"
-            - "double"
-          return: "double"
-        - args:
-            - "boolean"
-            - "float"
-          return: "float"
-        - args:
-            - "boolean"
-            - "bigint"
-          return: "bigint"
-        - args:
-            - "boolean"
-            - "integer"
-          return: "integer"
     - names:
         - "*"
       signatures:
@@ -1582,10 +1197,6 @@ expressions:
           return: "double"
         - args:
             - "decimal"
-            - "float"
-          return: "double"
-        - args:
-            - "decimal"
             - "bigint"
           return: "decimal"
         - args:
@@ -1593,24 +1204,12 @@ expressions:
             - "integer"
           return: "decimal"
         - args:
-            - "decimal"
-            - "boolean"
-          return: "decimal"
-        - args:
-            - "decimal"
-            - "varchar"
-          return: "decimal"
-        - args:
             - "double"
             - "double"
           return: "double"
         - args:
             - "double"
             - "decimal"
-          return: "double"
-        - args:
-            - "double"
-            - "float"
           return: "double"
         - args:
             - "double"
@@ -1620,42 +1219,6 @@ expressions:
             - "double"
             - "integer"
           return: "double"
-        - args:
-            - "double"
-            - "boolean"
-          return: "double"
-        - args:
-            - "double"
-            - "varchar"
-          return: "double"
-        - args:
-            - "float"
-            - "double"
-          return: "double"
-        - args:
-            - "float"
-            - "decimal"
-          return: "float"
-        - args:
-            - "float"
-            - "float"
-          return: "float"
-        - args:
-            - "float"
-            - "bigint"
-          return: "double"
-        - args:
-            - "float"
-            - "integer"
-          return: "float"
-        - args:
-            - "float"
-            - "boolean"
-          return: "float"
-        - args:
-            - "float"
-            - "varchar"
-          return: "float"
         - args:
             - "bigint"
             - "bigint"
@@ -1670,19 +1233,7 @@ expressions:
           return: "double"
         - args:
             - "bigint"
-            - "float"
-          return: "double"
-        - args:
-            - "bigint"
             - "integer"
-          return: "bigint"
-        - args:
-            - "bigint"
-            - "boolean"
-          return: "bigint"
-        - args:
-            - "bigint"
-            - "varchar"
           return: "bigint"
         - args:
             - "integer"
@@ -1698,71 +1249,17 @@ expressions:
           return: "double"
         - args:
             - "integer"
-            - "float"
-          return: "float"
-        - args:
-            - "integer"
             - "bigint"
           return: "bigint"
-        - args:
-            - "integer"
-            - "boolean"
-          return: "integer"
-        - args:
-            - "integer"
-            - "varchar"
-          return: "integer"
-        - args:
-            - "varchar"
-            - "decimal"
-          return: "decimal"
-        - args:
-            - "varchar"
-            - "double"
-          return: "double"
-        - args:
-            - "varchar"
-            - "float"
-          return: "float"
-        - args:
-            - "varchar"
-            - "bigint"
-          return: "bigint"
-        - args:
-            - "varchar"
-            - "integer"
-          return: "integer"
-        - args:
-            - "boolean"
-            - "double"
-          return: "double"
-        - args:
-            - "boolean"
-            - "float"
-          return: "float"
-        - args:
-            - "boolean"
-            - "bigint"
-          return: "bigint"
-        - args:
-            - "boolean"
-            - "integer"
-          return: "integer"
     #--- Null type ---#
     - names:
         - "is null"
       signatures:
         - args:
-            - "float"
-          return: "boolean"
-        - args:
             - "integer"
           return: "boolean"
         - args:
             - "time"
-          return: "boolean"
-        - args:
-            - "varbinary"
           return: "boolean"
         - args:
             - "timestamp"
@@ -1789,16 +1286,10 @@ expressions:
         - "is not null"
       signatures:
         - args:
-            - "float"
-          return: "boolean"
-        - args:
             - "integer"
           return: "boolean"
         - args:
             - "time"
-          return: "boolean"
-        - args:
-            - "varbinary"
           return: "boolean"
         - args:
             - "timestamp"
@@ -1842,10 +1333,6 @@ expressions:
           return: "boolean"
         - args:
             - "decimal"
-            - "float"
-          return: "boolean"
-        - args:
-            - "decimal"
             - "bigint"
           return: "boolean"
         - args:
@@ -1866,10 +1353,6 @@ expressions:
           return: "boolean"
         - args:
             - "double"
-            - "float"
-          return: "boolean"
-        - args:
-            - "double"
             - "bigint"
           return: "boolean"
         - args:
@@ -1878,30 +1361,6 @@ expressions:
           return: "boolean"
         - args:
             - "double"
-            - "varchar"
-          return: "boolean"
-        - args:
-            - "float"
-            - "float"
-          return: "boolean"
-        - args:
-            - "float"
-            - "decimal"
-          return: "boolean"
-        - args:
-            - "float"
-            - "double"
-          return: "boolean"
-        - args:
-            - "float"
-            - "bigint"
-          return: "boolean"
-        - args:
-            - "float"
-            - "integer"
-          return: "boolean"
-        - args:
-            - "float"
             - "varchar"
           return: "boolean"
         - args:
@@ -1915,10 +1374,6 @@ expressions:
         - args:
             - "bigint"
             - "double"
-          return: "boolean"
-        - args:
-            - "bigint"
-            - "float"
           return: "boolean"
         - args:
             - "bigint"
@@ -1942,10 +1397,6 @@ expressions:
           return: "boolean"
         - args:
             - "integer"
-            - "float"
-          return: "boolean"
-        - args:
-            - "integer"
             - "bigint"
           return: "boolean"
         - args:
@@ -1963,10 +1414,6 @@ expressions:
         - args:
             - "varchar"
             - "double"
-          return: "boolean"
-        - args:
-            - "varchar"
-            - "float"
           return: "boolean"
         - args:
             - "varchar"
@@ -2023,10 +1470,6 @@ expressions:
         - args:
             - "time"
             - "varchar"
-          return: "boolean"
-        - args:
-            - "varbinary"
-            - "varbinary"
           return: "boolean"
         - args:
             - "boolean"
@@ -2038,10 +1481,6 @@ expressions:
         - args:
             - "varchar"
             - "varchar"
-          return: "boolean"
-        - args:
-            - "varbinary"
-            - "varbinary"
           return: "boolean"
     - names:
         - "not"
@@ -2062,10 +1501,6 @@ expressions:
           return: "varchar"
         - args:
             - "varchar"
-            - "float"
-          return: "varchar"
-        - args:
-            - "varchar"
             - "timestamp"
           return: "varchar"
         - args:
@@ -2082,10 +1517,6 @@ expressions:
           return: "varchar"
         - args:
             - "varchar"
-            - "varbinary"
-          return: "varchar"
-        - args:
-            - "varchar"
             - "time"
           return: "varchar"
         - args:
@@ -2097,19 +1528,7 @@ expressions:
             - "double"
           return: "varchar"
         - args:
-            - "float"
-            - "varchar"
-          return: "varchar"
-        - args:
             - "bigint"
-            - "varchar"
-          return: "varchar"
-        - args:
-            - "varbinary"
-            - "varbinary"
-          return: "varbinary"
-        - args:
-            - "varbinary"
             - "varchar"
           return: "varchar"
         - args:
@@ -2147,393 +1566,6 @@ expressions:
             - "boolean"
             - "boolean"
           return: "boolean"
-    - names:
-        - "is distinct from"
-      signatures:
-        - args:
-            - "boolean"
-            - "boolean"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "varbinary"
-            - "varbinary"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "date"
-            - "date"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "integer"
-            - "integer"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "bigint"
-            - "bigint"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "integer"
-            - "bigint"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "bigint"
-            - "integer"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "double"
-            - "double"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "double"
-            - "integer"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "integer"
-            - "double"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "bigint"
-            - "double"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "double"
-            - "bigint"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "time"
-            - "time"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "timestamp"
-            - "timestamp"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "varchar"
-            - "varchar"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "varchar"
-            - "integer"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^-?[0-9]+$'' AND CAST({0} AS INT8) = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "integer"
-            - "varchar"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^-?[0-9]+$'' AND {0} = CAST({1} AS INT8)) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "varchar"
-            - "bigint"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^-?[0-9]+$'' AND CAST({0} AS INT8) = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "bigint"
-            - "varchar"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^-?[0-9]+$'' AND {0} = CAST({1} AS INT8)) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "varchar"
-            - "double"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^[+\\-]?[0-9]+\\.?[0-9]*$'' AND CAST({0} AS FLOAT8) = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "double"
-            - "varchar"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^[+\\-]?[0-9]+\\.?[0-9]*$'' AND {0} = CAST({1} AS FLOAT8)) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "varchar"
-            - "timestamp"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^[0-9]+\\-[0-9][0-9]\\-[0-9][0-9]( [0-9]+:[0-9][0-9]:[0-9][0-9](\\.[0-9]+)?)?$'' AND CAST({0} AS TIMESTAMP) = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "timestamp"
-            - "varchar"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^[0-9]+\\-[0-9][0-9]\\-[0-9][0-9]( [0-9]+:[0-9][0-9]:[0-9][0-9](\\.[0-9]+)?)?$'' AND {0} = CAST({1} AS TIMESTAMP)) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "varchar"
-            - "time"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^[0-9]+:[0-9][0-9](:[0-9][0-9](\\.[0-9]+))?$'' AND CAST({0} AS TIME) = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "time"
-            - "varchar"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^[0-9]+:[0-9][0-9](:[0-9][0-9](\\.[0-9]+))?$'' AND {0} = CAST({1} AS TIME)) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "varchar"
-            - "date"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^[0-9]+\\-[0-9][0-9]\\-[0-9][0-9]( 00:00:00(.0+)?)?$'' AND CAST({0} AS DATE) = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "date"
-            - "varchar"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^[0-9]+\\-[0-9][0-9]\\-[0-9][0-9]( 00:00:00(.0+)?)?$'' AND {0} = CAST({1} AS DATE)) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "boolean"
-            - "varchar"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR (LOWER({1}) ~ ''^([tf01yn]|yes|no|true|false|on|off)$'' AND {0} = CAST({1} AS BOOLEAN)) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "varchar"
-            - "boolean"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR (LOWER({0}) ~ ''^([tf01yn]|yes|no|true|false|on|off)$'' AND CAST({0} AS BOOLEAN) = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "float"
-            - "float"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "float"
-            - "integer"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "integer"
-            - "float"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "float"
-            - "bigint"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "bigint"
-            - "float"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "float"
-            - "double"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "double"
-            - "float"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} = {1}) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "float"
-            - "varchar"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^[+\\-]?[0-9]+\\.?[0-9]*$'' AND {0} = CAST({1} AS FLOAT4)) THEN 0 ELSE 1 END = 1 "
-        - args:
-            - "varchar"
-            - "float"
-          return: "boolean"
-          rewrite: "CASE WHEN ({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^[+\\-]?[0-9]+\\.?[0-9]*$'' AND CAST({1} AS FLOAT4) = {1}) THEN 0 ELSE 1 END = 1 "
-    - names:
-        - "is not distinct from"
-      signatures:
-        - args:
-            - "boolean"
-            - "boolean"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "varbinary"
-            - "varbinary"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "date"
-            - "date"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "integer"
-            - "integer"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "bigint"
-            - "bigint"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "integer"
-            - "bigint"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "bigint"
-            - "integer"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "double"
-            - "double"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "double"
-            - "integer"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "integer"
-            - "double"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "bigint"
-            - "double"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "double"
-            - "bigint"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "time"
-            - "time"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "timestamp"
-            - "timestamp"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "varchar"
-            - "varchar"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "varchar"
-            - "integer"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^-?[0-9]+$'' AND CAST({0} AS INT8) = {1}))"
-        - args:
-            - "integer"
-            - "varchar"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^-?[0-9]+$'' AND {0} = CAST({1} AS INT8)))"
-        - args:
-            - "varchar"
-            - "bigint"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^-?[0-9]+$'' AND CAST({0} AS INT8) = {1}))"
-        - args:
-            - "bigint"
-            - "varchar"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^-?[0-9]+$'' AND {0} = CAST({1} AS INT8)))"
-        - args:
-            - "varchar"
-            - "double"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^[+\\-]?[0-9]+\\.?[0-9]*$'' AND CAST({0} AS FLOAT8) = {1}))"
-        - args:
-            - "double"
-            - "varchar"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^[+\\-]?[0-9]+\\.?[0-9]*$'' AND {0} = CAST({1} AS FLOAT8)))"
-        - args:
-            - "varchar"
-            - "timestamp"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^[0-9]+\\-[0-9][0-9]\\-[0-9][0-9]( [0-9]+:[0-9][0-9]:[0-9][0-9](\\.[0-9]+)?)?$'' AND CAST({0} AS TIMESTAMP) = {1}))"
-        - args:
-            - "timestamp"
-            - "varchar"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^[0-9]+\\-[0-9][0-9]\\-[0-9][0-9]( [0-9]+:[0-9][0-9]:[0-9][0-9](\\.[0-9]+)?)?$'' AND {0} = CAST({1} AS TIMESTAMP)))"
-        - args:
-            - "varchar"
-            - "time"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^[0-9]+:[0-9][0-9](:[0-9][0-9](\\.[0-9]+))?$'' AND CAST({0} AS TIME) = {1}))"
-        - args:
-            - "time"
-            - "varchar"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^[0-9]+:[0-9][0-9](:[0-9][0-9](\\.[0-9]+))?$'' AND {0} = CAST({1} AS TIME)))"
-        - args:
-            - "varchar"
-            - "date"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^[0-9]+\\-[0-9][0-9]\\-[0-9][0-9]( 00:00:00(.0+)?)?$'' AND CAST({0} AS DATE) = {1}))"
-        - args:
-            - "date"
-            - "varchar"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^[0-9]+\\-[0-9][0-9]\\-[0-9][0-9]( 00:00:00(.0+)?)?$'' AND {0} = CAST({1} AS DATE)))"
-        - args:
-            - "boolean"
-            - "varchar"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR (LOWER({1}) ~ ''^([tf01yn]|yes|no|true|false|on|off)$'' AND {0} = CAST({1} AS BOOLEAN)))"
-        - args:
-            - "varchar"
-            - "boolean"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR (LOWER({0}) ~ ''^([tf01yn]|yes|no|true|false|on|off)$'' AND CAST({0} AS BOOLEAN) = {1}))"
-        - args:
-            - "float"
-            - "float"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "float"
-            - "integer"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "integer"
-            - "float"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "float"
-            - "bigint"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "bigint"
-            - "float"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "float"
-            - "double"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "double"
-            - "float"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} = {1}))"
-        - args:
-            - "float"
-            - "varchar"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({1} ~ ''^[+\\-]?[0-9]+\\.?[0-9]*$'' AND {0} = CAST({1} AS FLOAT4)))"
-        - args:
-            - "varchar"
-            - "float"
-          return: "boolean"
-          rewrite: "(({0} IS NULL AND {1} IS NULL) OR ({0} ~ ''^[+\\-]?[0-9]+\\.?[0-9]*$'' AND CAST({1} AS FLOAT4) = {1}))"
-
   variable_length_operators:
     - names:
         - and
